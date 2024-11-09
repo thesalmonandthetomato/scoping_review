@@ -4,6 +4,7 @@ This repository holds information pertaining to the ongoing scoping review inves
 
 The review commenced in November 2024 and updates will be posted as they develop.
 
+
 # Team
 The review is being conducted by:
 <a href="https://www.nealhaddaway.com" target="_blank">Neal Haddaway</a> - freelance researcher and photojournalist, Portugal and UK
@@ -11,6 +12,7 @@ The review is being conducted by:
 <a href="https://researchportal.hw.ac.uk/en/persons/marija-sciberras" target="_blank">Marija Sciberras</a> - Associate Professor, Herriot-Watt University, UK
 <a href="https://researchportal.hw.ac.uk/en/persons/ingrid-kelling" target="_blank">Ingrid Kelling</a> - Assistant Professor, Herriot-Watt University, UK
 <a href="https://carleton.ca/biology/people/steven-j-cooke/" target="_blank">Steven J Cooke</a> - Professor, Carleton University, Canada
+
 
 # Funding and Conflicts of Interest
 The work is unfunded and the authors declare they have no conflicts of interest.

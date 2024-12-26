@@ -10,15 +10,25 @@ extra_stopwords <- c('jats', 'italic', 'italics', 'abstract', 'copyright', 'copy
                      'introduction', 'background', 'discussion', 'paper', 'chapter', 'science',
                      'part', 'report', 'terms', 'author', 'science', 'issue', 'volume', 'references',
                      'full-text', 'version', 'full text', 'papers', 'show', 'bold', 'style', 'list-item',
-                     'abstracttext', 'label', 'styled-content', 'fixed-case', 'list')
-
-model <- textmodel_lda(dfmt, k = 20, verbose = TRUE)
-terms <- list(terms(model, 1000))
-new_stopwords <- unlist(lapply(terms, function(x) x[nchar(x) %in% 0:3]))
-stopword_list <- c(stopwords("en"), new_stopwords, extra_stopwords)
+                     'abstracttext', 'label', 'styled-content', 'fixed-case', 'list',
+                     'published')
 
 toks <- tokens(corp, remove_punct = TRUE, remove_symbols = TRUE, 
                remove_numbers = TRUE, remove_url = TRUE)
+dfmt <- dfm(toks) |> 
+  dfm_remove(stopword_list) |>
+  dfm_remove("*@*") |>
+  dfm_trim(max_docfreq = 0.1, docfreq_type = "prop")
+model <- textmodel_lda(dfmt, k = 20, verbose = TRUE)
+
+# add to stopwords words with fewer than 4 characters
+terms <- list(terms(model, 1000000))
+new_stopwords <- unlist(lapply(terms, function(x) x[nchar(x) %in% 0:3]))
+
+# combine all stopwords
+stopword_list <- c(stopwords("en"), new_stopwords, extra_stopwords)
+
+# rerun dfmt removing all new stopwords
 dfmt <- dfm(toks) |> 
   dfm_remove(stopword_list) |>
   dfm_remove("*@*") |>

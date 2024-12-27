@@ -45,13 +45,21 @@ dfmt <- dfm(toks) |>
 print(dfmt)
 
 ### standardised LDA
-#lda <- textmodel_lda(dfmt, k = 20, verbose = TRUE)
+lda <- textmodel_lda(dfmt, k = 50, verbose = TRUE)
 # topic terms
 #knitr::kable(terms(lda))
 # document topics
 #dat <- docvars(lda$data)
 #dat$topic <- topics(lda)
 #knitr::kable(head(dat[,c("date", "topic", "head")], 10))
+# create a json output
+json <- createJSON(phi = lda$phi, 
+                   theta = lda$theta, 
+                   doc.length = rowSums(dfmt), 
+                   vocab = colnames(dfmt), 
+                   term.frequency = colSums(dfmt)
+)
+serVis(json)
 
 ## Seeded (semi-supervised) TM: https://koheiw.github.io/seededlda/articles/pkgdown/seeded.html
 # load dictionary

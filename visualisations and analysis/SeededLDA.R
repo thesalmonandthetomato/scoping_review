@@ -2,6 +2,8 @@
 
 library(seededlda)
 library(synthesisr)
+library(LDAvis)
+library(quanteda)
 
 rayyan <- read_refs("visualisations and analysis/provisional includes 21.12.24.ris")
 
@@ -82,10 +84,6 @@ rayyan$topic <- topic
 
 
 ## Visualise
-library(pacman)
-p_load("seededlda",
-       "quanteda",
-       "LDAvis")
 
 # create a json output
 json <- createJSON(phi = lda_seed$phi, 

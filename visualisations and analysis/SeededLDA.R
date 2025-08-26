@@ -2,6 +2,8 @@
 
 library(seededlda)
 library(synthesisr)
+library(LDAvis)
+library(quanteda)
 
 rayyan <- read_refs("visualisations and analysis/provisional includes 21.12.24.ris")
 

@@ -1,0 +1,223 @@
+---
+title: "Topic Modelling"
+date: today
+format:
+  html: default
+  pdf: default
+  docx: default
+editor: visual
+execute: 
+  echo: true
+  warning: false
+  message: false
+---
+
+## Methods
+
+We conducted topic modelling on bibliographic data exported from Rayyan. 
+
+RIS files were imported with the `synthesisr` package, cleaned, and converted into a document-feature matrix using **quanteda**.  
+
+We applied both unsupervised Latent Dirichlet Allocation (LDA) and semi-supervised seededLDA, using a domain-specific dictionary to improve interpretability.  
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: load data and libraries
+library(tidyverse)
+library(seededlda)
+library(synthesisr)
+library(quanteda)
+library(quanteda.textplots)
+library(quanteda.textstats)
+library(LDAvis)
+library(pheatmap)
+library(kableExtra)
+# read RIS file
+rayyan <- read_refs("visualisations and analysis/provisional includes 21.12.24.ris")
+
+# remove trailing reference text in abstracts
+rayyan$abstract <- sub(". References .*", ".", rayyan$abstract)
+
+# create corpus
+corp <- paste(rayyan$title, rayyan$abstract)
+
+# tokenise
+toks <- tokens(corp, remove_punct = TRUE, remove_symbols = TRUE, 
+               remove_numbers = TRUE, remove_url = TRUE)
+
+# stopwords
+extra_stopwords <- c("jats","italic","italics","abstract","copyright","et al.","et al",
+                     "research","article","results","methodology","introduction",
+                     "background","discussion","paper","science","report","author","issue",
+                     "references","full-text","version","papers","bold","style","list",
+                     "published","h1","h2","h3")
+stopword_list <- c(stopwords("en"), extra_stopwords)
+
+# document-feature matrix
+dfmt <- dfm(toks) |> 
+  dfm_remove(stopword_list) |> 
+  dfm_trim(max_docfreq = 0.1, docfreq_type = "prop")
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: lda modelling
+# standard LDA
+lda <- textmodel_lda(dfmt, k = 20, verbose = TRUE)
+
+# seeded LDA
+dict <- dictionary(file = "dictionary.yml")
+lda_seed <- textmodel_seededlda(dfmt, dict, batch_size = 0.01, auto_iter = TRUE, verbose = TRUE)
+```
+
+## Results
+
+### Topic Prevalence
+
+We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalance may be skewed toward the dictionary of terms inflating the prevalence of rare terms.   
+
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: Topic prevalence
+# 1) Prevalence per topic
+topic_props <- colMeans(lda_seed$theta)
+topic_props_df <- tibble(topic = seq_along(topic_props),
+                         Prevalence = round(topic_props, 3))
+
+# 2) Top terms per topic (robust to list/matrix return types)
+seed_top <- terms(lda_seed, 10)
+
+if (is.list(seed_top)) {
+  seed_terms_tbl <- tibble(
+    topic = seq_along(seed_top),
+    Topic_Label = if (!is.null(names(seed_top))) names(seed_top) else paste0("Topic ", seq_along(seed_top)),
+    Top_Terms = vapply(seed_top, function(x) paste(x, collapse = ", "), character(1))
+  )
+} else {
+  # assume matrix with topics in columns
+  seed_terms_tbl <- tibble(
+    topic = seq_len(ncol(seed_top)),
+    Topic_Label = if (!is.null(colnames(seed_top))) colnames(seed_top) else paste0("Topic ", seq_len(ncol(seed_top))),
+    Top_Terms = apply(seed_top, 2, function(x) paste(x, collapse = ", "))
+  )
+}
+
+# 3) Join prevalence (guarantees correct alignment)
+topic_summary <- seed_terms_tbl %>%
+  left_join(topic_props_df, by = "topic") %>%
+  arrange(desc(Prevalence))
+
+kable(topic_summary, caption = "Seeded LDA: Top terms and topic prevalence")
+
+```
+
+### Top Terms per Topic (same as table--- could be prettier)
+
+The most frequent terms characterising each topic are shown below. 
+
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: top terms barplot
+ggplot(topic_summary, aes(x = reorder(factor(topic), Prevalence), y = Prevalence)) +
+  geom_col(fill = "darkgreen") +
+  geom_text(aes(label = Top_Terms), hjust = 0, size = 2.5) +
+  coord_flip() +
+  labs(
+    x = "Topic",
+    y = "Prevalence",
+    title = "Topic Prevalence with Top Terms"
+  ) +
+  theme_minimal()
+
+```
+
+
+### Heatmap of Documents × Topics
+
+This shows the distribution of topics across the first 50 documents (rows clustered).
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| label: heatmap
+
+pheatmap(lda_seed$theta[1:50, ], 
+         cluster_rows = TRUE, cluster_cols = TRUE,
+         main = "Topic distribution across documents")
+```
+The topics with the largest number of documents are highlighted in warmer colours (farm management and legislation). 
+
+### Interactive Exploration (Supplementary??)
+
+We also generated an interactive LDAvis visualisation (HTML only, not for PDF).
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| eval: false
+json <- createJSON(phi = lda_seed$phi, 
+                   theta = lda_seed$theta, 
+                   doc.length = rowSums(dfmt), 
+                   vocab = colnames(dfmt), 
+                   term.frequency = colSums(dfmt))
+
+serVis(json)
+```
+
+## Interpretation
+
+Seeded LDA produced topics consistent with the predefined dictionary, ensuring interpretability.Topic prevalence highlights dominant themes in the literature.
+
+
+
+## Compare seeded and unseeded LDA
+
+### Compare top terms per topic
+
+
+```{r}
+top_terms_unseeded <- terms(lda, 10)
+top_terms_seeded <- terms(lda_seed, 10)
+
+# Combine into comparison table
+compare_terms <- data.frame(
+  Topic = rep(1:10, 2),
+  Model = rep(c("Unseeded", "Seeded"), each = 10),
+  Terms = c(sapply(top_terms_unseeded[1:10], paste, collapse = ", "),
+            sapply(top_terms_seeded[1:10], paste, collapse = ", "))
+)
+
+knitr::kable(compare_terms, row.names = FALSE, caption = "Comparison of top terms by model")
+
+
+```
+
+
+This shows that the seeded LDA pulls topics closer to our dictionary.
+
+### Compare document assignment stability
+
+For each document, compare the “most likely topic” under seeded vs unseeded.
+```{r}
+doc_topics_unseeded <- apply(lda$theta, 1, which.max)
+doc_topics_seeded <- apply(lda_seed$theta, 1, which.max)
+
+agreement <- mean(doc_topics_unseeded == doc_topics_seeded)
+agreement
+
+
+```
+
+We compared document-level topic assignments between unseeded LDA and seeded LDA. Only `r round(agreement*100,2)` % of documents were assigned to the same dominant topic under both models, indicating that the seeded model substantially reallocated documents to dictionary-guided topics.

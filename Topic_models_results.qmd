@@ -67,18 +67,18 @@ dfmt <- dfm(toks) |>
 #| message: false
 #| label: lda modelling
 # standard LDA
-lda <- textmodel_lda(dfmt, k = 20, verbose = TRUE)
+lda <- textmodel_lda(dfmt, k = 20, verbose = FALSE)
 
 # seeded LDA
 dict <- dictionary(file = "dictionary.yml")
-lda_seed <- textmodel_seededlda(dfmt, dict, batch_size = 0.01, auto_iter = TRUE, verbose = TRUE)
+lda_seed <- textmodel_seededlda(dfmt, dict, batch_size = 0.01, auto_iter = TRUE, verbose =FALSE)
 ```
 
 ## Results
 
 ### Topic Prevalence
 
-We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalance may be skewed toward the dictionary of terms inflating the prevalence of rare terms.   
+We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalence may be skewed toward the dictionary of terms inflating the prevalence of rare terms.   
 
 
 ```{r}
@@ -110,7 +110,7 @@ if (is.list(seed_top)) {
 }
 
 # 3) Join prevalence (guarantees correct alignment)
-topic_summary <- seed_terms_tbl %>%
+topic_summary <- seed_terms_tbl  |> 
   left_join(topic_props_df, by = "topic") %>%
   arrange(desc(Prevalence))
 

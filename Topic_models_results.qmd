@@ -14,11 +14,11 @@ execute:
 
 ## Methods
 
-We conducted topic modelling on bibliographic data exported from Rayyan. 
+We conducted topic modelling on bibliographic data exported from Rayyan.
 
-RIS files were imported with the `synthesisr` package, cleaned, and converted into a document-feature matrix using **quanteda**.  
+RIS files were imported with the `synthesisr` package, cleaned, and converted into a document-feature matrix using **quanteda**.
 
-We applied both unsupervised Latent Dirichlet Allocation (LDA) and semi-supervised seededLDA, using a domain-specific dictionary to improve interpretability.  
+We applied both unsupervised Latent Dirichlet Allocation (LDA) and semi-supervised seededLDA, using a domain-specific dictionary to improve interpretability.
 
 ```{r}
 #| echo: false
@@ -78,8 +78,7 @@ lda_seed <- textmodel_seededlda(dfmt, dict, batch_size = 0.01, auto_iter = TRUE,
 
 ### Topic Prevalence
 
-We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalence may be skewed toward the dictionary of terms inflating the prevalence of rare terms.   
-
+We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalence may be skewed toward the dictionary of terms inflating the prevalence of rare terms.
 
 ```{r}
 #| echo: false
@@ -120,8 +119,7 @@ kable(topic_summary, caption = "Seeded LDA: Top terms and topic prevalence")
 
 ### Top Terms per Topic (same as table--- could be prettier)
 
-The most frequent terms characterising each topic are shown below. 
-
+The most frequent terms characterising each topic are shown below.
 
 ```{r}
 #| echo: false
@@ -141,7 +139,6 @@ ggplot(topic_summary, aes(x = reorder(factor(topic), Prevalence), y = Prevalence
 
 ```
 
-
 ### Heatmap of Documents × Topics
 
 This shows the distribution of topics across the first 50 documents (rows clustered).
@@ -156,7 +153,8 @@ pheatmap(lda_seed$theta[1:50, ],
          cluster_rows = TRUE, cluster_cols = TRUE,
          main = "Topic distribution across documents")
 ```
-The topics with the largest number of documents are highlighted in warmer colours (farm management and legislation). 
+
+The topics with the largest number of documents are highlighted in warmer colours (farm management and legislation).
 
 ### Interactive Exploration (Supplementary??)
 
@@ -180,12 +178,9 @@ serVis(json)
 
 Seeded LDA produced topics consistent with the predefined dictionary, ensuring interpretability.Topic prevalence highlights dominant themes in the literature.
 
-
-
 ## Compare seeded and unseeded LDA
 
 ### Compare top terms per topic
-
 
 ```{r}
 top_terms_unseeded <- terms(lda, 10)
@@ -204,12 +199,12 @@ knitr::kable(compare_terms, row.names = FALSE, caption = "Comparison of top term
 
 ```
 
-
 This shows that the seeded LDA pulls topics closer to our dictionary.
 
 ### Compare document assignment stability
 
 For each document, compare the “most likely topic” under seeded vs unseeded.
+
 ```{r}
 doc_topics_unseeded <- apply(lda$theta, 1, which.max)
 doc_topics_seeded <- apply(lda_seed$theta, 1, which.max)

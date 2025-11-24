@@ -58,6 +58,7 @@ stopword_list <- c(stopwords("en"), extra_stopwords)
 # document-feature matrix
 dfmt <- dfm(toks) |> 
   dfm_remove(stopword_list) |> 
+  dfm_remove("^\\w{1,2}$") |>    # removes words with 1–2 characters
   dfm_trim(max_docfreq = 0.1, docfreq_type = "prop")
 ```
 

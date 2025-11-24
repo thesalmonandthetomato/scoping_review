@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2025-09-02">
 
-<title>Topic Modelling of Literature</title>
+<title>Topic Modelling</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -81,7 +81,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Topic Modelling of Literature</h1>
+<h1 class="title">Topic Modelling</h1>
 </div>
 
 
@@ -106,136 +106,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="methods" class="level2">
 <h2 class="anchored" data-anchor-id="methods">Methods</h2>
-<p>We conducted topic modelling on bibliographic data exported from <strong>Rayyan</strong>.</p>
+<p>We conducted topic modelling on bibliographic data exported from Rayyan.</p>
 <p>RIS files were imported with the <code>synthesisr</code> package, cleaned, and converted into a document-feature matrix using <strong>quanteda</strong>.</p>
 <p>We applied both unsupervised Latent Dirichlet Allocation (LDA) and semi-supervised seededLDA, using a domain-specific dictionary to improve interpretability.</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(seededlda)</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(synthesisr)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(quanteda)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(quanteda.textplots)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(quanteda.textstats)</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(LDAvis)</span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(pheatmap)</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kableExtra)</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># read RIS file</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>rayyan <span class="ot">&lt;-</span> <span class="fu">read_refs</span>(<span class="st">"visualisations and analysis/provisional includes 21.12.24.ris"</span>)</span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># remove trailing reference text in abstracts</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>rayyan<span class="sc">$</span>abstract <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">". References .*"</span>, <span class="st">"."</span>, rayyan<span class="sc">$</span>abstract)</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># create corpus</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>corp <span class="ot">&lt;-</span> <span class="fu">paste</span>(rayyan<span class="sc">$</span>title, rayyan<span class="sc">$</span>abstract)</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co"># tokenise</span></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>toks <span class="ot">&lt;-</span> <span class="fu">tokens</span>(corp, <span class="at">remove_punct =</span> <span class="cn">TRUE</span>, <span class="at">remove_symbols =</span> <span class="cn">TRUE</span>, </span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>               <span class="at">remove_numbers =</span> <span class="cn">TRUE</span>, <span class="at">remove_url =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co"># stopwords</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>extra_stopwords <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"jats"</span>,<span class="st">"italic"</span>,<span class="st">"italics"</span>,<span class="st">"abstract"</span>,<span class="st">"copyright"</span>,<span class="st">"et al."</span>,<span class="st">"et al"</span>,</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"research"</span>,<span class="st">"article"</span>,<span class="st">"results"</span>,<span class="st">"methodology"</span>,<span class="st">"introduction"</span>,</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"background"</span>,<span class="st">"discussion"</span>,<span class="st">"paper"</span>,<span class="st">"science"</span>,<span class="st">"report"</span>,<span class="st">"author"</span>,<span class="st">"issue"</span>,</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"references"</span>,<span class="st">"full-text"</span>,<span class="st">"version"</span>,<span class="st">"papers"</span>,<span class="st">"bold"</span>,<span class="st">"style"</span>,<span class="st">"list"</span>,</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>                     <span class="st">"published"</span>,<span class="st">"h1"</span>,<span class="st">"h2"</span>,<span class="st">"h3"</span>)</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>stopword_list <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">stopwords</span>(<span class="st">"en"</span>), extra_stopwords)</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="co"># document-feature matrix</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>dfmt <span class="ot">&lt;-</span> <span class="fu">dfm</span>(toks) <span class="sc">|&gt;</span> </span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dfm_remove</span>(stopword_list) <span class="sc">|&gt;</span> </span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dfm_trim</span>(<span class="at">max_docfreq =</span> <span class="fl">0.1</span>, <span class="at">docfreq_type =</span> <span class="st">"prop"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># standard LDA</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>lda <span class="ot">&lt;-</span> <span class="fu">textmodel_lda</span>(dfmt, <span class="at">k =</span> <span class="dv">20</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Fitting LDA with 20 topics
- ...initializing
- ...Gibbs sampling in 2000 iterations
- ......iteration 100 elapsed time: 21.69 seconds (delta: 0.08%)
- ......iteration 200 elapsed time: 37.25 seconds (delta: 0.04%)
- ......iteration 300 elapsed time: 46.62 seconds (delta: 0.02%)
- ......iteration 400 elapsed time: 55.78 seconds (delta: 0.03%)
- ......iteration 500 elapsed time: 65.30 seconds (delta: 0.12%)
- ......iteration 600 elapsed time: 74.34 seconds (delta: -0.04%)
- ......iteration 700 elapsed time: 82.92 seconds (delta: 0.02%)
- ......iteration 800 elapsed time: 91.84 seconds (delta: 0.07%)
- ......iteration 900 elapsed time: 101.55 seconds (delta: 0.04%)
- ......iteration 1000 elapsed time: 118.91 seconds (delta: 0.03%)
- ......iteration 1100 elapsed time: 135.06 seconds (delta: -0.04%)
- ......iteration 1200 elapsed time: 153.75 seconds (delta: 0.02%)
- ......iteration 1300 elapsed time: 171.44 seconds (delta: -0.04%)
- ......iteration 1400 elapsed time: 189.54 seconds (delta: -0.03%)
- ......iteration 1500 elapsed time: 202.31 seconds (delta: -0.02%)
- ......iteration 1600 elapsed time: 212.12 seconds (delta: 0.02%)
- ......iteration 1700 elapsed time: 221.58 seconds (delta: -0.01%)
- ......iteration 1800 elapsed time: 231.98 seconds (delta: -0.08%)
- ......iteration 1900 elapsed time: 242.82 seconds (delta: 0.04%)
- ......iteration 2000 elapsed time: 253.14 seconds (delta: -0.02%)
- ...computing theta and phi
- ...complete</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># seeded LDA</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>dict <span class="ot">&lt;-</span> <span class="fu">dictionary</span>(<span class="at">file =</span> <span class="st">"dictionary.yml"</span>)</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>lda_seed <span class="ot">&lt;-</span> <span class="fu">textmodel_seededlda</span>(dfmt, dict, <span class="at">batch_size =</span> <span class="fl">0.01</span>, <span class="at">auto_iter =</span> <span class="cn">TRUE</span>, <span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Fitting LDA with 50 topics
- ...initializing
- ...using up to 14 threads for distributed computing
- ......allocating 45 documents to each thread
- ...Gibbs sampling in up to 2000 iterations
- ......iteration 100 elapsed time: 7.90 seconds (delta: 0.42%)
- ......iteration 200 elapsed time: 18.36 seconds (delta: 0.15%)
- ......iteration 300 elapsed time: 30.65 seconds (delta: 0.18%)
- ......iteration 400 elapsed time: 39.72 seconds (delta: 0.04%)
- ......iteration 500 elapsed time: 48.78 seconds (delta: -0.17%)
- ...computing theta and phi
- ...complete</code></pre>
-</div>
-</div>
 </section>
 <section id="results" class="level2">
 <h2 class="anchored" data-anchor-id="results">Results</h2>
-<p>###Topic Prevalence</p>
-<p>We calculated the mean prevalence of each topic across the corpus.</p>
+<section id="topic-prevalence" class="level3">
+<h3 class="anchored" data-anchor-id="topic-prevalence">Topic Prevalence</h3>
+<p>We calculated the mean prevalence of each topic across the corpus.Topic prevalence indicates the proportion of content associated with each topic across the corpus, highlighting which themes are dominant versus niche.In a seededLDA the prevalence may be skewed toward the dictionary of terms inflating the prevalence of rare terms.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) Prevalence per topic</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>topic_props <span class="ot">&lt;-</span> <span class="fu">colMeans</span>(lda_seed<span class="sc">$</span>theta)</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>topic_props_df <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">topic =</span> <span class="fu">seq_along</span>(topic_props),</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>                         <span class="at">Prevalence =</span> <span class="fu">round</span>(topic_props, <span class="dv">3</span>))</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) Top terms per topic (robust to list/matrix return types)</span></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>seed_top <span class="ot">&lt;-</span> <span class="fu">terms</span>(lda_seed, <span class="dv">10</span>)</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">is.list</span>(seed_top)) {</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>  seed_terms_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">seq_along</span>(seed_top),</span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">Topic_Label =</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(<span class="fu">names</span>(seed_top))) <span class="fu">names</span>(seed_top) <span class="cf">else</span> <span class="fu">paste0</span>(<span class="st">"Topic "</span>, <span class="fu">seq_along</span>(seed_top)),</span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">Top_Terms =</span> <span class="fu">vapply</span>(seed_top, <span class="cf">function</span>(x) <span class="fu">paste</span>(x, <span class="at">collapse =</span> <span class="st">", "</span>), <span class="fu">character</span>(<span class="dv">1</span>))</span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># assume matrix with topics in columns</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>  seed_terms_tbl <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
-<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">topic =</span> <span class="fu">seq_len</span>(<span class="fu">ncol</span>(seed_top)),</span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">Topic_Label =</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(<span class="fu">colnames</span>(seed_top))) <span class="fu">colnames</span>(seed_top) <span class="cf">else</span> <span class="fu">paste0</span>(<span class="st">"Topic "</span>, <span class="fu">seq_len</span>(<span class="fu">ncol</span>(seed_top))),</span>
-<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">Top_Terms =</span> <span class="fu">apply</span>(seed_top, <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">paste</span>(x, <span class="at">collapse =</span> <span class="st">", "</span>))</span>
-<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="co"># 3) Join prevalence (guarantees correct alignment)</span></span>
-<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>topic_summary <span class="ot">&lt;-</span> seed_terms_tbl <span class="sc">%&gt;%</span></span>
-<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(topic_props_df, <span class="at">by =</span> <span class="st">"topic"</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(<span class="fu">desc</span>(Prevalence))</span>
-<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(topic_summary, <span class="at">caption =</span> <span class="st">"Seeded LDA: Top terms and topic prevalence"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>Seeded LDA: Top terms and topic prevalence</caption>
 <colgroup>
 <col style="width: 3%">
-<col style="width: 14%">
-<col style="width: 75%">
-<col style="width: 6%">
+<col style="width: 15%">
+<col style="width: 73%">
+<col style="width: 7%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -247,323 +135,314 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: right;">40</td>
-<td style="text-align: left;">Legislation</td>
-<td style="text-align: left;">market, food, policy, case, economic, sustainable, social, global, products, sustainability</td>
-<td style="text-align: right;">0.074</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: left;">Environmental impacts</td>
+<td style="text-align: left;">environment, management, future, current, information, need, challenges, many, title, methods</td>
+<td style="text-align: right;">0.056</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">10</td>
 <td style="text-align: left;">Pathogens</td>
-<td style="text-align: left;">virus, viral, pathogen, infection, infectious, virulence, isolates, isav, outbreak, infected</td>
-<td style="text-align: right;">0.051</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">36</td>
-<td style="text-align: left;">Outcome</td>
-<td style="text-align: left;">mortality, health, survival, behaviour, susceptibility, wrasse, risk, diseases, infection, factors</td>
-<td style="text-align: right;">0.041</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">44</td>
-<td style="text-align: left;">Location</td>
-<td style="text-align: left;">freshwater, river, ocean, escaped, populations, rivers, areas, lake, years, salmonids</td>
-<td style="text-align: right;">0.039</td>
+<td style="text-align: left;">virus, viral, pathogen, infectious, infection, virulence, isolates, isav, vaccines, outbreak</td>
+<td style="text-align: right;">0.047</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">13</td>
 <td style="text-align: left;">Feed</td>
-<td style="text-align: left;">diet, fed, meal, diets, protein, g, dietary, astaxanthin, weight, fishmeal</td>
-<td style="text-align: right;">0.037</td>
+<td style="text-align: left;">diet, fatty, acid, fed, meal, diets, oil, protein, dietary, g</td>
+<td style="text-align: right;">0.047</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">48</td>
 <td style="text-align: left;">Fish biology</td>
-<td style="text-align: left;">cells, genes, expression, immune, liver, response, gene, cell, gut, behaviour</td>
+<td style="text-align: left;">cells, genes, expression, immune, response, liver, gene, cell, gut, behaviour</td>
 <td style="text-align: right;">0.037</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">35</td>
-<td style="text-align: left;">Life stage</td>
-<td style="text-align: left;">juvenile, adult, egg, harvest, smolt, fry, size, parr, hatchery, eggs</td>
-<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: left;">Legislation</td>
+<td style="text-align: left;">policy, social, case, global, local, innovation, sustainability, public, economic, resource</td>
+<td style="text-align: right;">0.036</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">19</td>
-<td style="text-align: left;">Food quality</td>
-<td style="text-align: left;">fatty, acid, oil, acids, fillet, flesh, content, dha, lipid, epa</td>
-<td style="text-align: right;">0.033</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">37</td>
-<td style="text-align: left;">Wild versus farmed</td>
-<td style="text-align: left;">genetic, populations, population, selection, variation, breeding, hybrid, introgression, traits, differences</td>
-<td style="text-align: right;">0.031</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">28</td>
-<td style="text-align: left;">Model</td>
-<td style="text-align: left;">model, risk, norwegian, models, predict, price, management, simulation, modelling, estimated</td>
-<td style="text-align: right;">0.029</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">30</td>
-<td style="text-align: left;">Externalities</td>
-<td style="text-align: left;">resistance, salmonis, louse, lepeophtheirus, parasite, infestation, host, caligus, rogercresseyi, genome</td>
-<td style="text-align: right;">0.028</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">12</td>
-<td style="text-align: left;">Fish welfare</td>
-<td style="text-align: left;">welfare, stress, c, temperature, cortisol, plasma, blood, temperatures, activity, group</td>
-<td style="text-align: right;">0.027</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">34</td>
-<td style="text-align: left;">Action terms</td>
-<td style="text-align: left;">treatment, feeding, exposure, treatments, concentrations, days, treated, mg, surveillance, concentration</td>
-<td style="text-align: right;">0.024</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">16</td>
-<td style="text-align: left;">Farm equipment</td>
-<td style="text-align: left;">cage, system, systems, tank, ras, culture, kg, density, per, tanks</td>
-<td style="text-align: right;">0.022</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">26</td>
-<td style="text-align: left;">Fish productivity</td>
-<td style="text-align: left;">performance, method, yield, productivity, methods, detection, approach, developed, extraction, obtained</td>
-<td style="text-align: right;">0.022</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">32</td>
-<td style="text-align: left;">Monitoring</td>
-<td style="text-align: left;">gill, al, et, assay, agd, samples, n, perurans, gills, detect</td>
-<td style="text-align: right;">0.022</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">20</td>
-<td style="text-align: left;">Treatments</td>
-<td style="text-align: left;">salmonicida, bacteria, strains, antibiotic, antimicrobial, bacterial, isolated, aeromonas, isolates, antibiotics</td>
-<td style="text-align: right;">0.021</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">23</td>
-<td style="text-align: left;">Nutrient load</td>
-<td style="text-align: left;">sediment, sites, sludge, organic, benthic, title, effluent, site, waste, sediments</td>
-<td style="text-align: right;">0.021</td>
+<td style="text-align: right;">44</td>
+<td style="text-align: left;">Location</td>
+<td style="text-align: left;">freshwater, populations, river, genetic, ocean, population, rivers, escaped, native, lake</td>
+<td style="text-align: right;">0.036</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">45</td>
 <td style="text-align: left;">Study type</td>
-<td style="text-align: left;">model, cage, cages, net, processing, laboratory, hatchery, tank, surface, swimming</td>
-<td style="text-align: right;">0.019</td>
+<td style="text-align: left;">model, cage, cages, net, system, laboratory, processing, tank, ras, density</td>
+<td style="text-align: right;">0.036</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">50</td>
-<td style="text-align: left;">Methods</td>
-<td style="text-align: left;">muscle, changes, histological, samples, storage, red, quality, tissue, white, spectrometry</td>
-<td style="text-align: right;">0.019</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">24</td>
-<td style="text-align: left;">Biodiversity</td>
-<td style="text-align: left;">chile, ecosystem, southern, change, region, biodiversity, climate, chilean, areas, conservation</td>
-<td style="text-align: right;">0.018</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">38</td>
-<td style="text-align: left;">Hydrodynamics</td>
-<td style="text-align: left;">mussels, integrated, mussel, imta, bay, blue, bloom, phytoplankton, nutrient, n</td>
-<td style="text-align: right;">0.016</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">47</td>
-<td style="text-align: left;">Impacts on native fish</td>
-<td style="text-align: left;">bacterial, microbiota, microbial, communities, gut, diversity, bacteria, community, microbiome, intestinal</td>
-<td style="text-align: right;">0.016</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">11</td>
-<td style="text-align: left;">Fish health</td>
-<td style="text-align: left;">health, performance, survival, condition, maturation, necrosis, productivity, inflammation, immunity, cms</td>
-<td style="text-align: right;">0.015</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">46</td>
-<td style="text-align: left;">Polyculture</td>
-<td style="text-align: left;">canada, british, pacific, columbia, pink, chum, sockeye, archipelago, bc, o</td>
-<td style="text-align: right;">0.015</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">1</td>
-<td style="text-align: left;">atlantic salmon</td>
-<td style="text-align: left;">european, carp, bass, catfish, saprolegnia, bream, fishes, cultured, tilapia, turkey</td>
-<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">35</td>
+<td style="text-align: left;">Life stage</td>
+<td style="text-align: left;">juvenile, adult, egg, harvest, smolt, fry, groups, parr, hatchery, size</td>
+<td style="text-align: right;">0.034</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">18</td>
 <td style="text-align: left;">Customer preference</td>
-<td style="text-align: left;">sup, consumer, t, sub, organic, consumers, texture, color, fresh, taste</td>
-<td style="text-align: right;">0.014</td>
+<td style="text-align: left;">market, products, consumer, seafood, demand, price, supply, product, consumers, norwegian</td>
+<td style="text-align: right;">0.032</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">17</td>
-<td style="text-align: left;">Chemicals</td>
-<td style="text-align: left;">chemical, antibiotic, oxytetracycline, florfenicol, discharge, mass, values, calculated, contaminant, scales</td>
-<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: left;">Externalities</td>
+<td style="text-align: left;">resistance, salmonis, louse, lepeophtheirus, parasite, host, infection, infestation, parasites, caligus</td>
+<td style="text-align: right;">0.032</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">25</td>
-<td style="text-align: left;">Economy</td>
-<td style="text-align: left;">larvae, biofouling, site, profit, zooplankton, nets, cage, e, hydroid, settlement</td>
-<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: left;">Food quality</td>
+<td style="text-align: left;">fillet, flesh, concentrations, samples, content, meat, quality, antioxidant, consumption, omega-3</td>
+<td style="text-align: right;">0.027</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">41</td>
-<td style="text-align: left;">Farm management</td>
-<td style="text-align: left;">safety, food, veterinary, share, european, terms, review, authority, scientific, animal</td>
-<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: left;">Monitoring</td>
+<td style="text-align: left;">gill, assay, samples, detection, agd, n, dna, pcr, perurans, detect</td>
+<td style="text-align: right;">0.024</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">43</td>
-<td style="text-align: left;">Popularity</td>
-<td style="text-align: left;">de, en, la, y, el, los, se, del, las, que</td>
-<td style="text-align: right;">0.013</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: left;">Action terms</td>
+<td style="text-align: left;">treatment, feeding, days, treatments, treated, exposure, concentrations, day, surveillance, incidence</td>
+<td style="text-align: right;">0.024</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">4</td>
-<td style="text-align: left;">chinook salmon</td>
-<td style="text-align: left;">walbaum, sp, ve, kg, g, enzyme, nitrogen, values, cholesterol, dam</td>
-<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">36</td>
+<td style="text-align: left;">Outcome</td>
+<td style="text-align: left;">mortality, health, survival, behaviour, susceptibility, risk, diseases, factors, behavior, exposure</td>
+<td style="text-align: right;">0.024</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">6</td>
-<td style="text-align: left;">masu salmon</td>
-<td style="text-align: left;">scotland, scottish, chapter, islands, maerl, faroe, people, researchers, jellyfish, now</td>
-<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: left;">Fish welfare</td>
+<td style="text-align: left;">welfare, stress, cortisol, blood, plasma, activity, response, group, physiological, swimming</td>
+<td style="text-align: right;">0.023</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">8</td>
-<td style="text-align: left;">pink salmon</td>
-<td style="text-align: left;">s, r, m, e, t, b, h, k, j, d</td>
-<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: left;">Treatments</td>
+<td style="text-align: left;">bacteria, salmonicida, strains, antimicrobial, antibiotic, bacterial, isolated, aeromonas, isolates, florfenicol</td>
+<td style="text-align: right;">0.022</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">9</td>
-<td style="text-align: left;">Sea lice</td>
-<td style="text-align: left;">light, skin, nm, microscopy, smoltification, blue, sw, dark, particles, microplastics</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">14</td>
-<td style="text-align: left;">Genetics</td>
-<td style="text-align: left;">triploid, diploid, triploids, ploidy, lower, diploids, prevalence, jaw, ljd, triploidy</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">15</td>
-<td style="text-align: left;">GMO</td>
-<td style="text-align: left;">transgenic, animal, recombinant, genetically, modified, aquadvantage, crispr, animals, ge, application</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">21</td>
-<td style="text-align: left;">Environmental impacts</td>
-<td style="text-align: left;">environment, habitat, aquatic, protection, russian, act, directive, import, trade, russia</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">22</td>
-<td style="text-align: left;">Antibiotic resistance</td>
-<td style="text-align: left;">de, la, et, des, les, en, le, du, saumon, une</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">31</td>
-<td style="text-align: left;">Reviews</td>
-<td style="text-align: left;">assessment, life, cycle, indicators, impacts, morphological, morphology, qualitative, global, quantitative</td>
-<td style="text-align: right;">0.012</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">33</td>
-<td style="text-align: left;">Sea lice treatment</td>
-<td style="text-align: left;">lumpfish, delousing, deltamethrin, ivermectin, cyclopterus, lumpus, cleaner, azamethiphos, nephrocalcinosis, aggression</td>
-<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: left;">Nutrient load</td>
+<td style="text-align: left;">sediment, communities, organic, sludge, sites, benthic, effluent, microbiota, microbial, bacterial</td>
+<td style="text-align: right;">0.021</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">29</td>
 <td style="text-align: left;">Escapes</td>
-<td style="text-align: left;">escape, cod, saithe, escaping, morhua, gadus, herring, recapture, release, halibut</td>
-<td style="text-align: right;">0.011</td>
+<td style="text-align: left;">escape, scotland, coast, areas, fishing, fisheries, norwegian, escaped, fishery, fjord</td>
+<td style="text-align: right;">0.021</td>
 </tr>
 <tr class="odd">
 <td style="text-align: right;">39</td>
 <td style="text-align: left;">Social outcome</td>
-<td style="text-align: left;">human, part, farmer, cooperation, employment, assessment, stakeholder, rural, conclusion, delta</td>
+<td style="text-align: left;">human, food, system, systems, culture, million, global, produced, tons, life</td>
+<td style="text-align: right;">0.021</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">37</td>
+<td style="text-align: left;">Wild versus farmed</td>
+<td style="text-align: left;">genetic, selection, hybrid, breeding, introgression, traits, hybrids, differences, domesticated, families</td>
+<td style="text-align: right;">0.020</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">50</td>
+<td style="text-align: left;">Methods</td>
+<td style="text-align: left;">muscle, histological, changes, lesions, red, affected, skin, heart, skeletal, tissue</td>
+<td style="text-align: right;">0.020</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">14</td>
+<td style="text-align: left;">Genetics</td>
+<td style="text-align: left;">c, triploid, temperature, diploid, temperatures, thermal, prevalence, triploids, lower, ploidy</td>
+<td style="text-align: right;">0.017</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">22</td>
+<td style="text-align: left;">Antibiotic resistance</td>
+<td style="text-align: left;">mussels, nitrogen, nutrient, n, waste, mussel, c, imta, integrated, blue</td>
+<td style="text-align: right;">0.017</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">24</td>
+<td style="text-align: left;">Biodiversity</td>
+<td style="text-align: left;">chile, chilean, ecosystem, southern, coho, biodiversity, south, region, patagonia, areas</td>
+<td style="text-align: right;">0.016</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">26</td>
+<td style="text-align: left;">Fish productivity</td>
+<td style="text-align: left;">performance, yield, productivity, mass, method, extract, liquid, extraction, obtained, spectrometry</td>
+<td style="text-align: right;">0.015</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">27</td>
+<td style="text-align: left;">Industry residuals</td>
+<td style="text-align: left;">canada, british, columbia, chinook, pacific, pink, tshawytscha, chum, sockeye, juvenile</td>
+<td style="text-align: right;">0.015</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">33</td>
+<td style="text-align: left;">Sea lice treatment</td>
+<td style="text-align: left;">lumpfish, wrasse, delousing, cleaner, deltamethrin, ballan, biofouling, lumpus, cyclopterus, nets</td>
+<td style="text-align: right;">0.015</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">11</td>
+<td style="text-align: left;">Fish health</td>
+<td style="text-align: left;">health, performance, survival, condition, productivity, necrosis, maturation, inflammation, sp, immunity</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">41</td>
+<td style="text-align: left;">Farm management</td>
+<td style="text-align: left;">brown, salmonids, trutta, s, salmonid, arctic, g, brook, salvelinus, gyrodactylus</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">47</td>
+<td style="text-align: left;">Impacts on native fish</td>
+<td style="text-align: left;">methods, abstracttext, learning, approach, method, classification, features, detection, machine, label</td>
+<td style="text-align: right;">0.014</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">15</td>
+<td style="text-align: left;">GMO</td>
+<td style="text-align: left;">transgenic, food, animal, share, recombinant, veterinary, safety, aquadvantage, crispr, scientific</td>
+<td style="text-align: right;">0.013</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">17</td>
+<td style="text-align: left;">Chemicals</td>
+<td style="text-align: left;">chemical, risk, antibiotic, discharge, oxytetracycline, florfenicol, function, efficiency, futures, contaminant</td>
+<td style="text-align: right;">0.013</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">28</td>
+<td style="text-align: left;">Model</td>
+<td style="text-align: left;">model, de, en, la, y, el, predict, los, del, se</td>
+<td style="text-align: right;">0.013</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">46</td>
+<td style="text-align: left;">Polyculture</td>
+<td style="text-align: left;">fishes, carp, bass, catfish, bream, european, cultured, gairdneri, black, common</td>
+<td style="text-align: right;">0.013</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">1</td>
+<td style="text-align: left;">atlantic salmon</td>
+<td style="text-align: left;">de, et, al, la, des, les, en, le, du, saumon</td>
+<td style="text-align: right;">0.012</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">2</td>
+<td style="text-align: left;">rainbow trout</td>
+<td style="text-align: left;">cod, steelhead, saithe, sh, iceland, gadus, styled-content, elements, morhua, tissue</td>
+<td style="text-align: right;">0.012</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">5</td>
+<td style="text-align: left;">chum salmon</td>
+<td style="text-align: left;">tract, ph, gastrointestinal, eq, nm, intestine, gi, digestion, microplastics, nanoparticles</td>
+<td style="text-align: right;">0.012</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">16</td>
+<td style="text-align: left;">Farm equipment</td>
+<td style="text-align: left;">cage, sup, t, tank, sub, land-based, s, h, pen, h2o2</td>
+<td style="text-align: right;">0.012</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">4</td>
+<td style="text-align: left;">chinook salmon</td>
+<td style="text-align: left;">r, m, e, lt, ds, d, gt, j, cerebralis, smolts</td>
 <td style="text-align: right;">0.011</td>
 </tr>
 <tr class="even">
-<td style="text-align: right;">49</td>
-<td style="text-align: left;">Water filtering</td>
-<td style="text-align: left;">chinook, tshawytscha, zealand, larvae, chorion, anisakis, simplex, hard, smoked, nanotechnology</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: left;">pink salmon</td>
+<td style="text-align: left;">light, h, floating, surface, design, blue, exposed, structure, wave, dark</td>
 <td style="text-align: right;">0.011</td>
 </tr>
 <tr class="odd">
-<td style="text-align: right;">2</td>
-<td style="text-align: left;">rainbow trout</td>
-<td style="text-align: left;">steelhead, emissions, gas, greenhouse, nearly, emission, foods, grow-out, news, relatively</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: left;">Economy</td>
+<td style="text-align: left;">bay, profit, maerl, fundy, emergy, cost-effective, brunswick, al, island, et</td>
+<td style="text-align: right;">0.011</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">6</td>
+<td style="text-align: left;">masu salmon</td>
+<td style="text-align: left;">green, malachite, microsporidian, motility, ikan, mutant, parent, antimycin, dan, desmozoon</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">7</td>
+<td style="text-align: left;">sockeye salmon</td>
+<td style="text-align: left;">loss, germ, delta, fishes, ichthyobodo, gnrh, og, necator, conclusion, targeted</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">9</td>
+<td style="text-align: left;">Sea lice</td>
+<td style="text-align: left;">parasites, larvae, mackerel, anisakis, examination, specimens, gh, simplex, milt, morphometric</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">31</td>
+<td style="text-align: left;">Reviews</td>
+<td style="text-align: left;">list-item, joint, venture, watercourses, interior, pollution, tend, chl, pgcs, series</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">38</td>
+<td style="text-align: left;">Hydrodynamics</td>
+<td style="text-align: left;">w, saprolegnia, hydrodynamic, university, k, frontiers, parasitica, centre, institute, department</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">42</td>
+<td style="text-align: left;">Sustainability</td>
+<td style="text-align: left;">islands, faroe, problem, symposium, section, seen, routing, ps, prospects, combined</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="even">
+<td style="text-align: right;">43</td>
+<td style="text-align: left;">Popularity</td>
+<td style="text-align: left;">media, chapter, opinion, controversy, circular, waste, trade, dispute, cfp, lessons</td>
+<td style="text-align: right;">0.010</td>
+</tr>
+<tr class="odd">
+<td style="text-align: right;">49</td>
+<td style="text-align: left;">Water filtering</td>
+<td style="text-align: left;">ruckeri, yersinia, y, yersiniosis, enteric, mlva, redmouth, o1, erm, serotype</td>
 <td style="text-align: right;">0.010</td>
 </tr>
 <tr class="even">
 <td style="text-align: right;">3</td>
 <td style="text-align: left;">coho salmon</td>
-<td style="text-align: left;">harbour, plant, venture, priority, joint, eq, mt, q, waters, tps</td>
-<td style="text-align: right;">0.010</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">5</td>
-<td style="text-align: left;">chum salmon</td>
-<td style="text-align: left;">sh, fi, â, hitra, sialic, grayling, possible, reviews, chromosome, sheep</td>
-<td style="text-align: right;">0.010</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">7</td>
-<td style="text-align: left;">sockeye salmon</td>
-<td style="text-align: left;">membrane, mitochondrial, pl, class, membranes, neutral, irish, ω3, extract, rapid</td>
-<td style="text-align: right;">0.010</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">27</td>
-<td style="text-align: left;">Industry residuals</td>
-<td style="text-align: left;">deformities, vertebral, bone, phosphorus, vertebrae, normal, column, fusions, mineral, vertebra</td>
-<td style="text-align: right;">0.010</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">42</td>
-<td style="text-align: left;">Sustainability</td>
-<td style="text-align: left;">noatunensis, sgpv, subsp, f, francisella, subspecies, germ, nov, mlva, proteases</td>
-<td style="text-align: right;">0.010</td>
+<td style="text-align: left;">investigation, debris, temperature, der, melatonin, modified, seen, status, britain, white</td>
+<td style="text-align: right;">0.009</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<section id="top-terms-per-topic" class="level3">
-<h3 class="anchored" data-anchor-id="top-terms-per-topic">Top Terms per Topic</h3>
-<p>The most frequent terms characterising each topic are shown below. Here we display the top 10 terms for the first 6 topics as an example.</p>
+</section>
+<section id="top-terms-per-topic-same-as-table-could-be-prettier" class="level3">
+<h3 class="anchored" data-anchor-id="top-terms-per-topic-same-as-table-could-be-prettier">Top Terms per Topic (same as table— could be prettier)</h3>
+<p>The most frequent terms characterising each topic are shown below.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(topic_summary, <span class="fu">aes</span>(<span class="at">x =</span> <span class="fu">reorder</span>(<span class="fu">factor</span>(topic), Prevalence), <span class="at">y =</span> Prevalence)) <span class="sc">+</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> <span class="st">"darkgreen"</span>) <span class="sc">+</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">label =</span> Top_Terms), <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">size =</span> <span class="fl">2.5</span>) <span class="sc">+</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_flip</span>() <span class="sc">+</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">"Topic"</span>,</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">y =</span> <span class="st">"Prevalence"</span>,</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">"Topic Prevalence with Top Terms"</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -577,9 +456,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="heatmap-of-documents-topics">Heatmap of Documents × Topics</h3>
 <p>This shows the distribution of topics across the first 50 documents (rows clustered).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pheatmap</span>(lda_seed<span class="sc">$</span>theta[<span class="dv">1</span><span class="sc">:</span><span class="dv">50</span>, ], </span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>         <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>, <span class="at">cluster_cols =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">main =</span> <span class="st">"Topic distribution across documents"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -588,50 +464,39 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 </div>
+<p>The topics with the largest number of documents are highlighted in warmer colours (farm management and legislation).</p>
 </section>
 <section id="interactive-exploration-supplementary" class="level3">
 <h3 class="anchored" data-anchor-id="interactive-exploration-supplementary">Interactive Exploration (Supplementary??)</h3>
 <p>We also generated an interactive LDAvis visualisation (HTML only, not for PDF).</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>json <span class="ot">&lt;-</span> <span class="fu">createJSON</span>(<span class="at">phi =</span> lda_seed<span class="sc">$</span>phi, </span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">theta =</span> lda_seed<span class="sc">$</span>theta, </span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">doc.length =</span> <span class="fu">rowSums</span>(dfmt), </span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">vocab =</span> <span class="fu">colnames</span>(dfmt), </span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>                   <span class="at">term.frequency =</span> <span class="fu">colSums</span>(dfmt))</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="fu">serVis</span>(json)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
 </section>
 </section>
 <section id="interpretation" class="level2">
 <h2 class="anchored" data-anchor-id="interpretation">Interpretation</h2>
-<p>Seeded LDA produced topics consistent with the predefined dictionary, ensuring interpretability.</p>
-<p>Results were robust to unseeded LDA, with broadly similar topic structures.</p>
-<p>Topic prevalence highlights dominant themes in the literature, while the top-term plots aid interpretability for co-authors and readers.</p>
+<p>Seeded LDA produced topics consistent with the predefined dictionary, ensuring interpretability.Topic prevalence highlights dominant themes in the literature.</p>
+</section>
+<section id="compare-seeded-and-unseeded-lda" class="level2">
+<h2 class="anchored" data-anchor-id="compare-seeded-and-unseeded-lda">Compare seeded and unseeded LDA</h2>
 <section id="compare-top-terms-per-topic" class="level3">
 <h3 class="anchored" data-anchor-id="compare-top-terms-per-topic">Compare top terms per topic</h3>
-<p>For each model, extract top terms and show them in a table. You can either:</p>
-<p>Place them side-by-side (kableExtra allows this).</p>
-<p>Or plot them as two panels (top terms unseeded vs seeded).</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>top_terms_unseeded <span class="ot">&lt;-</span> <span class="fu">terms</span>(lda, <span class="dv">10</span>)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>top_terms_seeded <span class="ot">&lt;-</span> <span class="fu">terms</span>(lda_seed, <span class="dv">10</span>)</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine into comparison table</span></span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>compare_terms <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">Topic =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="dv">2</span>),</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">Model =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Unseeded"</span>, <span class="st">"Seeded"</span>), <span class="at">each =</span> <span class="dv">10</span>),</span>
-<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">Terms =</span> <span class="fu">c</span>(<span class="fu">sapply</span>(top_terms_unseeded[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>], paste, <span class="at">collapse =</span> <span class="st">", "</span>),</span>
-<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">sapply</span>(top_terms_seeded[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>], paste, <span class="at">collapse =</span> <span class="st">", "</span>))</span>
-<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(compare_terms, <span class="at">caption =</span> <span class="st">"Comparison of top terms by model"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>top_terms_unseeded <span class="ot">&lt;-</span> <span class="fu">terms</span>(lda, <span class="dv">10</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>top_terms_seeded <span class="ot">&lt;-</span> <span class="fu">terms</span>(lda_seed, <span class="dv">10</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine into comparison table</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>compare_terms <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">Topic =</span> <span class="fu">rep</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>, <span class="dv">2</span>),</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">Model =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"Unseeded"</span>, <span class="st">"Seeded"</span>), <span class="at">each =</span> <span class="dv">10</span>),</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">Terms =</span> <span class="fu">c</span>(<span class="fu">sapply</span>(top_terms_unseeded[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>], paste, <span class="at">collapse =</span> <span class="st">", "</span>),</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>            <span class="fu">sapply</span>(top_terms_seeded[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>], paste, <span class="at">collapse =</span> <span class="st">", "</span>))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(compare_terms, <span class="at">row.names =</span> <span class="cn">FALSE</span>, <span class="at">caption =</span> <span class="st">"Comparison of top terms by model"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
 <caption>Comparison of top terms by model</caption>
 <thead>
 <tr class="header">
-<th style="text-align: left;"></th>
 <th style="text-align: right;">Topic</th>
 <th style="text-align: left;">Model</th>
 <th style="text-align: left;">Terms</th>
@@ -639,145 +504,125 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">risk</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">risk</td>
+<td style="text-align: left;">fatty</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">health</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">health</td>
+<td style="text-align: left;">acid</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">management</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">management</td>
+<td style="text-align: left;">acids</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">factors</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">factors</td>
+<td style="text-align: left;">content</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">methods</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">methods</td>
+<td style="text-align: left;">oil</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">systems</td>
 <td style="text-align: right;">6</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">systems</td>
+<td style="text-align: left;">quality</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">information</td>
 <td style="text-align: right;">7</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">information</td>
+<td style="text-align: left;">lipid</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">current</td>
 <td style="text-align: right;">8</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">current</td>
+<td style="text-align: left;">dha</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">future</td>
 <td style="text-align: right;">9</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">future</td>
+<td style="text-align: left;">epa</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">system</td>
 <td style="text-align: right;">10</td>
 <td style="text-align: left;">Unseeded</td>
-<td style="text-align: left;">system</td>
+<td style="text-align: left;">composition</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">european</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">european</td>
+<td style="text-align: left;">de</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">carp</td>
 <td style="text-align: right;">2</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">carp</td>
+<td style="text-align: left;">et</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">bass</td>
 <td style="text-align: right;">3</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">bass</td>
+<td style="text-align: left;">al</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">catfish</td>
 <td style="text-align: right;">4</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">catfish</td>
+<td style="text-align: left;">la</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">saprolegnia</td>
 <td style="text-align: right;">5</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">saprolegnia</td>
+<td style="text-align: left;">des</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">bream</td>
 <td style="text-align: right;">6</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">bream</td>
+<td style="text-align: left;">les</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">fishes</td>
 <td style="text-align: right;">7</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">fishes</td>
+<td style="text-align: left;">en</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">cultured</td>
 <td style="text-align: right;">8</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">cultured</td>
+<td style="text-align: left;">le</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">tilapia</td>
 <td style="text-align: right;">9</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">tilapia</td>
+<td style="text-align: left;">du</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">turkey</td>
 <td style="text-align: right;">10</td>
 <td style="text-align: left;">Seeded</td>
-<td style="text-align: left;">turkey</td>
+<td style="text-align: left;">saumon</td>
 </tr>
 </tbody>
 </table>
 </div>
 </div>
-<p>👉 This shows if seeded LDA pulls topics closer to your dictionary.</p>
+<p>This shows that the seeded LDA pulls topics closer to our dictionary.</p>
 </section>
 <section id="compare-document-assignment-stability" class="level3">
 <h3 class="anchored" data-anchor-id="compare-document-assignment-stability">Compare document assignment stability</h3>
 <p>For each document, compare the “most likely topic” under seeded vs unseeded.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>doc_topics_unseeded <span class="ot">&lt;-</span> <span class="fu">apply</span>(lda<span class="sc">$</span>theta, <span class="dv">1</span>, which.max)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>doc_topics_seeded <span class="ot">&lt;-</span> <span class="fu">apply</span>(lda_seed<span class="sc">$</span>theta, <span class="dv">1</span>, which.max)</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>agreement <span class="ot">&lt;-</span> <span class="fu">mean</span>(doc_topics_unseeded <span class="sc">==</span> doc_topics_seeded)</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>agreement</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>doc_topics_unseeded <span class="ot">&lt;-</span> <span class="fu">apply</span>(lda<span class="sc">$</span>theta, <span class="dv">1</span>, which.max)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>doc_topics_seeded <span class="ot">&lt;-</span> <span class="fu">apply</span>(lda_seed<span class="sc">$</span>theta, <span class="dv">1</span>, which.max)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>agreement <span class="ot">&lt;-</span> <span class="fu">mean</span>(doc_topics_unseeded <span class="sc">==</span> doc_topics_seeded)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>agreement</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.01017869</code></pre>
+<pre><code>[1] 0.01266682</code></pre>
 </div>
 </div>
-<p>We compared document-level topic assignments between unseeded LDA and seeded LDA. Only 1.0178693 % of documents were assigned to the same dominant topic under both models, indicating that the seeded model substantially reallocated documents to dictionary-guided topics.</p>
+<p>We compared document-level topic assignments between unseeded LDA and seeded LDA. Only 1.27 % of documents were assigned to the same dominant topic under both models, indicating that the seeded model substantially reallocated documents to dictionary-guided topics.</p>
 </section>
 </section>
 

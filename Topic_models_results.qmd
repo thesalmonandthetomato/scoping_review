@@ -306,3 +306,47 @@ plot(g_auth,
 
 ```
 
+
+
+
+
+
+
+## Citation analysis
+
+```{r}
+dois <- refs %>%
+  mutate(doi = electronic_resource_number) %>%
+  filter(!is.na(doi), doi != "") %>%
+  distinct(doi)
+
+```
+
+
+```{r}
+library(openalexR)
+library(purrr)
+library(dplyr)
+
+# list of DOIs
+doi_vec <- dois$doi
+
+fetch_one <- function(doi) {
+  oa_fetch(
+    identifier = paste0("doi:", doi),
+    entity = "works"
+  )
+}
+
+# safe version: returns NULL on errors
+fetch_one_safe <- safely(fetch_one, otherwise = NULL)
+
+works_list <- map(doi_vec, fetch_one_safe)
+
+# extract results
+works <- bind_rows(
+  map(works_list, "result")   # extract $result inside `safely()` output
+)
+
+```
+

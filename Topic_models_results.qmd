@@ -34,32 +34,68 @@ library(quanteda.textstats)
 library(LDAvis)
 library(pheatmap)
 library(kableExtra)
-# read RIS file
-rayyan <- read_refs("visualisations and analysis/provisional includes 21.12.24.ris")
+library(DBI)
 
-# remove trailing reference text in abstracts
-rayyan$abstract <- sub(". References .*", ".", rayyan$abstract)
+con <- dbConnect(RSQLite::SQLite(), 
+   "screening/INCLUDES fixed abstracts.Data/sdb/sdb.eni"
+)
 
-# create corpus
-corp <- paste(rayyan$title, rayyan$abstract)
+# The core table containing title + abstract is "refs"
+refs <- dbReadTable(con, "refs")
+dbDisconnect(con)
 
-# tokenise
-toks <- tokens(corp, remove_punct = TRUE, remove_symbols = TRUE, 
-               remove_numbers = TRUE, remove_url = TRUE)
+# Inspect available fields:
+# names(refs)
 
-# stopwords
-extra_stopwords <- c("jats","italic","italics","abstract","copyright","et al.","et al",
-                     "research","article","results","methodology","introduction",
-                     "background","discussion","paper","science","report","author","issue",
-                     "references","full-text","version","papers","bold","style","list",
-                     "published","h1","h2","h3")
+title_col <- if ("title" %in% names(refs)) "title" else names(refs)[str_detect(names(refs),"title")]
+abstract_col <- if ("abstract" %in% names(refs)) "abstract" else names(refs)[str_detect(names(refs),"ab")][1]
+
+# Build text corpus
+corp <- paste(refs[[title_col]], refs[[abstract_col]])
+
+# Optional cleanup: remove “References …” text if present
+corp <- sub("References.*$", "", corp)
+
+# ---- Tokenise ----
+toks <- tokens(
+  corp,
+  remove_punct = TRUE,
+  remove_symbols = TRUE,
+  remove_numbers = TRUE,
+  remove_url = TRUE
+)
+# ---- Stopwords (with 3-character removal rule) ----
+
+extra_stopwords <- c(
+  "jats","italic","italics","abstract","copyright",
+  "et al.","et al",
+  "research","article","results","methodology","introduction",
+  "background","discussion","paper","science","report","author","issue",
+  "references","full-text","version","papers","bold","style","list",
+  "published","h1","h2","h3"
+)
+
 stopword_list <- c(stopwords("en"), extra_stopwords)
 
-# document-feature matrix
-dfmt <- dfm(toks) |> 
-  dfm_remove(stopword_list) |> 
-  dfm_remove("^\\w{1,2}$") |>    # removes words with 1–2 characters
+
+# remove stopwords
+toks <- tokens_remove(toks, stopword_list)
+
+# remove 1–3 character tokens BEFORE dfm
+toks <- tokens_remove(toks, "^\\w{1,3}$")
+
+
+# ---- Remove: 
+#   - standard stopwords
+#   - 1–2 character words
+#   - 3-character words
+# ----
+
+dfmt <- dfm(toks) |>
+  dfm_remove(stopword_list) |>
+  dfm_remove("^\\w{1,3}$") |>        # removes tokens of length 1–3
   dfm_trim(max_docfreq = 0.1, docfreq_type = "prop")
+
 ```
 
 ```{r}
@@ -72,7 +108,16 @@ lda <- textmodel_lda(dfmt, k = 20, verbose = FALSE)
 
 # seeded LDA
 dict <- dictionary(file = "dictionary.yml")
-lda_seed <- textmodel_seededlda(dfmt, dict, batch_size = 0.01, auto_iter = TRUE, verbose =FALSE)
+
+lda_seed <- textmodel_seededlda(
+  dfmt,
+  dict,
+  batch_size = 0.01,
+  auto_iter = TRUE,
+  verbose = FALSE
+)
+
+
 ```
 
 ## Results
@@ -217,3 +262,47 @@ agreement
 ```
 
 We compared document-level topic assignments between unseeded LDA and seeded LDA. Only `r round(agreement*100,2)` % of documents were assigned to the same dominant topic under both models, indicating that the seeded model substantially reallocated documents to dictionary-guided topics.
+
+## Co-author network
+
+
+```{r}
+library(igraph)
+
+# (1) Explode authors
+authors_df <- refs %>%
+  filter(!is.na(author)) %>%
+  mutate(authors = str_split(author, ";|,| and ", simplify = FALSE)) %>%
+  mutate(authors = map(authors, ~str_trim(.x))) %>%
+  mutate(authors = map(authors, ~.x[.x != ""])) %>%
+  filter(lengths(authors) > 0)
+
+# (2) Keep only papers with *multiple* authors
+multi_author <- authors_df %>%
+  filter(lengths(authors) >= 2)
+
+# (3) Build pairwise edges safely
+edges <- multi_author %>%
+  transmute(
+    id = id,
+    pairs = map(authors, ~combn(.x, 2, simplify = FALSE))
+  ) %>%
+  unnest(pairs) %>%
+  mutate(
+    source = map_chr(pairs, 1),
+    target = map_chr(pairs, 2)
+  ) %>%
+  select(source, target)
+
+# (4) Build graph
+g_auth <- graph_from_data_frame(edges, directed = FALSE)
+
+plot(g_auth,
+     vertex.size = 5,
+     vertex.label = NA,
+     layout = layout_with_fr,
+     edge.color = "grey70")
+
+
+```
+

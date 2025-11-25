@@ -350,3 +350,37 @@ works <- bind_rows(
 
 ```
 
+```{r}
+
+edges <- works %>%
+  select(id, referenced_works) %>%
+  unnest(referenced_works) %>%
+  rename(source = id, target = referenced_works)
+
+```
+
+
+```{r}
+g_citation <- graph_from_data_frame(edges, directed = TRUE)
+plot(g_citation,
+     vertex.size = 3,
+     vertex.label = NA,
+     edge.arrow.size = 0.2,
+     layout = layout_with_fr)
+
+```
+
+
+```{r}
+g_und <- as_undirected(g_citation)
+
+clusters <- cluster_louvain(g_und)
+V(g_citation)$cluster <- clusters$membership
+plot(g_citation,
+     vertex.size = 4,
+     vertex.label = NA,
+     vertex.color = V(g_citation)$cluster,
+     layout = layout_with_fr)
+
+```
+

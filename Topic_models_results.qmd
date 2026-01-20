@@ -35,6 +35,10 @@ library(LDAvis)
 library(pheatmap)
 library(kableExtra)
 library(DBI)
+library(igraph)
+library(ggraph)
+library(tidygraph)
+library(openalexR)
 
 con <- dbConnect(RSQLite::SQLite(), 
    "screening/INCLUDES fixed abstracts.Data/sdb/sdb.eni"
@@ -93,8 +97,9 @@ toks <- tokens_remove(toks, "^\\w{1,3}$")
 
 dfmt <- dfm(toks) |>
   dfm_remove(stopword_list) |>
-  dfm_remove("^\\w{1,3}$") |>        # removes tokens of length 1–3
+  dfm_select(min_nchar = 3) |>   # keeps tokens with >= 3 characters
   dfm_trim(max_docfreq = 0.1, docfreq_type = "prop")
+
 
 ```
 
@@ -200,7 +205,7 @@ pheatmap(lda_seed$theta[1:50, ],
          main = "Topic distribution across documents")
 ```
 
-The topics with the largest number of documents are highlighted in warmer colours (farm management and legislation).
+The topics with the largest number of documents are highlighted in warmer colours.
 
 ### Interactive Exploration (Supplementary??)
 
@@ -267,7 +272,7 @@ We compared document-level topic assignments between unseeded LDA and seeded LDA
 
 
 ```{r}
-library(igraph)
+
 
 # (1) Explode authors
 authors_df <- refs %>%
@@ -324,9 +329,7 @@ dois <- refs %>%
 
 
 ```{r}
-library(openalexR)
-library(purrr)
-library(dplyr)
+
 
 # list of DOIs
 doi_vec <- dois$doi
@@ -381,6 +384,76 @@ plot(g_citation,
      vertex.label = NA,
      vertex.color = V(g_citation)$cluster,
      layout = layout_with_fr)
+
+```
+
+
+```{r}
+co_cite_edges <- works %>%
+  select(id, referenced_works) %>%
+  unnest(referenced_works) %>%
+  group_by(referenced_works) %>%
+  filter(n() >= 2) %>%                 # only keep groups with ≥ 2 citing papers
+  summarise(
+    pairs = list(combn(id, 2, simplify = FALSE)),
+    .groups = "drop"
+  ) %>%
+  unnest(pairs) %>%
+  mutate(
+    source = map_chr(pairs, 1),
+    target = map_chr(pairs, 2)
+  ) %>%
+  select(source, target)
+
+```
+
+```{r}
+g_co <- graph_from_data_frame(co_cite_edges, directed = FALSE)
+
+
+```
+```{r}
+works_refs <- works %>%
+  select(id, referenced_works) %>%
+  unnest(referenced_works)
+ref_index <- works_refs %>%
+  group_by(referenced_works) %>%
+  summarise(papers = list(id), .groups = "drop")
+
+pair_coupling <- ref_index %>%
+  filter(lengths(papers) >= 2) %>%              # only useful refs
+  mutate(
+    pairs = map(papers, ~combn(.x, 2, simplify = FALSE))
+  ) %>%
+  select(pairs) %>%
+  unnest(pairs)
+
+edges_bc <- pair_coupling %>%
+  transmute(
+    source = map_chr(pairs, 1),
+    target = map_chr(pairs, 2)
+  ) %>%
+  count(source, target, name = "weight")     # each shared ref = 1 weight
+
+
+```
+
+
+```{r}
+g_bc <- graph_from_data_frame(edges_bc, directed = FALSE)
+clusters_bc <- cluster_louvain(g_bc, weights = E(g_bc)$weight)
+
+V(g_bc)$cluster <- clusters_bc$membership
+
+
+
+
+g_bc_tidy <- as_tbl_graph(g_bc)
+
+ggraph(g_bc_tidy, layout = "fr") +
+  geom_edge_link(aes(alpha = weight), colour = "grey70") +
+  geom_node_point(aes(color = as.factor(cluster)), size = 3) +
+  theme_void()
 
 ```
 

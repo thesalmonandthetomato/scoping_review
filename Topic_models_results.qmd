@@ -270,7 +270,6 @@ We compared document-level topic assignments between unseeded LDA and seeded LDA
 
 ## Co-author network
 
-
 ```{r}
 
 
@@ -311,12 +310,6 @@ plot(g_auth,
 
 ```
 
-
-
-
-
-
-
 ## Citation analysis
 
 ```{r}
@@ -326,7 +319,6 @@ dois <- refs %>%
   distinct(doi)
 
 ```
-
 
 ```{r}
 
@@ -362,7 +354,6 @@ edges <- works %>%
 
 ```
 
-
 ```{r}
 g_citation <- graph_from_data_frame(edges, directed = TRUE)
 plot(g_citation,
@@ -372,7 +363,6 @@ plot(g_citation,
      layout = layout_with_fr)
 
 ```
-
 
 ```{r}
 g_und <- as_undirected(g_citation)
@@ -386,7 +376,6 @@ plot(g_citation,
      layout = layout_with_fr)
 
 ```
-
 
 ```{r}
 co_cite_edges <- works %>%
@@ -412,6 +401,7 @@ g_co <- graph_from_data_frame(co_cite_edges, directed = FALSE)
 
 
 ```
+
 ```{r}
 works_refs <- works %>%
   select(id, referenced_works) %>%
@@ -438,7 +428,6 @@ edges_bc <- pair_coupling %>%
 
 ```
 
-
 ```{r}
 g_bc <- graph_from_data_frame(edges_bc, directed = FALSE)
 clusters_bc <- cluster_louvain(g_bc, weights = E(g_bc)$weight)
@@ -456,4 +445,3 @@ ggraph(g_bc_tidy, layout = "fr") +
   theme_void()
 
 ```
-
